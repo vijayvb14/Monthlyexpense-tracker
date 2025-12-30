@@ -111,7 +111,7 @@ button {
 </div>
 
 <script>
-const API_URL = "PASTE_YOUR_SCRIPT_URL";
+const API_URL = "https://script.google.com/macros/s/AKfycbxOw_EZjiegbhpqtU-Zc-hvXERsA5M_3OpCAV5qS3-yAGXps33tPNhrqJ-B3QLlfbLfNg/exec";
 
 let currentMonth = new Date().toISOString().slice(0,7);
 let balances = {};
@@ -192,7 +192,7 @@ function loadHistory() {
 }
 
 function exportExcel() {
-  const SHEET_ID = "PASTE_SHEET_ID";
+  const SHEET_ID = "14DntGpbPle9sA2jonUKSA14JzUixUG4Kx5etfNNSIok";
   window.open(`https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=xlsx`);
 }
 
@@ -211,3 +211,4 @@ if ('serviceWorker' in navigator) {
 
 </body>
 </html>
+
