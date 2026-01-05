@@ -136,41 +136,16 @@ const SHEET_ID = "14DntGpbPle9sA2jonUKSA14JzUixUG4Kx5etfNNSIok";
 /* ================= CATEGORY MAP ================= */
 const categoryMap = {
   Personal: ["Food","Rent","Friends","Home","Others"],
-
   Office: ["Card","Game"],
-
   "House Build": [
-    "Borewell Work",
-    "EB",
-    "Loan",
-    "Service Wire",
-    "Sand",
-    "3/4 Jali",
-    "Motor and Pipe",
-    "Pipe Work",
-    "JCB Pillar Work Bore",
-    "Iron",
-    "Switch Board",
-    "Cement",
-    "Jali",
-    "Cement Bricks",
-    "Gravel",
-    "Earth Beam",
-    "Brick",
-    "Red Face Brick",
-    "Wood Work",
-    "JCB Septic Tank",
-    "Vehicle",
-    "River Sand",
-    "Door Clamp",
-    "Loan CR",
-    "Loan DR",
-    "PF",
-    "Salary",
-    "Miscellaneous"
+    "Borewell Work","EB","Loan","Service Wire","Sand","3/4 Jali",
+    "Motor and Pipe","Pipe Work","JCB Pillar Work Bore","Iron",
+    "Switch Board","Cement","Jali","Cement Bricks","Gravel",
+    "Earth Beam","Brick","Red Face Brick","Wood Work",
+    "JCB Septic Tank","Vehicle","River Sand","Door Clamp",
+    "Loan CR","Loan DR","PF","Salary","Miscellaneous"
   ]
 };
-
 
 /* ================= STATE ================= */
 let balance = 0;
@@ -182,7 +157,7 @@ month.value = new Date().toISOString().slice(0,7);
 loadCategories();
 loadBalance();
 
-/* ================= UI NAV ================= */
+/* ================= NAV ================= */
 function showSection(id) {
   tracker.style.display = "none";
   charts.style.display = "none";
@@ -191,10 +166,10 @@ function showSection(id) {
   if (id === "charts") loadExcelData();
 }
 
-/* ================= TRACKER LOGIC ================= */
+/* ================= TRACKER ================= */
 function loadCategories() {
   category.innerHTML = "";
-  categories[type.value].forEach(c =>
+  categoryMap[type.value].forEach(c =>
     category.add(new Option(c, c))
   );
 }
@@ -217,14 +192,11 @@ function updateBalance(v) {
 }
 
 function addAmount() {
-  const amt = Number(amount.value);
-  processTxn(amt, 0);
+  processTxn(Number(amount.value), 0);
 }
 
 function spendAmount() {
-  const amt = Number(amount.value);
-  processTxn(0, amt);
-
+  processTxn(0, Number(amount.value));
   if (budget.value && balance < budget.value * 0.3) {
     alert("⚠️ Budget almost used");
   }
@@ -234,10 +206,10 @@ function processTxn(cr, dr) {
   const newBal = balance + cr - dr;
   updateBalance(newBal);
 
-  fetch(API_URL, {
-    method: "POST",
-    headers: { "Content-Type": "text/plain;charset=utf-8" },
-    body: JSON.stringify({
+  fetch(API_URL,{
+    method:"POST",
+    headers:{ "Content-Type":"text/plain;charset=utf-8" },
+    body:JSON.stringify({
       month: month.value,
       type: type.value,
       category: category.value,
@@ -272,57 +244,48 @@ function switchTrend(v) {
 
 /* ================= CHARTS ================= */
 function drawPersonalTrend() {
-  drawLine(
-    excelData.summary.Personal,
-    "Personal Monthly Spend"
-  );
+  drawLine(excelData.summary.Personal, "Personal Monthly Spend");
 }
 
 function drawOfficeTrend() {
-  drawLine(
-    excelData.summary.Office,
-    "Office Monthly Spend"
-  );
+  drawLine(excelData.summary.Office, "Office Monthly Spend");
 }
 
 function drawHouseTrend() {
-  const labels = ["House Build"];
-  const values = [excelData.summary.HouseBuild.debit];
-
   if (chart) chart.destroy();
-  chart = new Chart(trendChart, {
-    type: "bar",
-    data: {
-      labels,
-      datasets: [{
-        label: "House Build Total Spend",
-        data: values,
-        backgroundColor: "#4caf50"
+  chart = new Chart(trendChart,{
+    type:"bar",
+    data:{
+      labels:["House Build"],
+      datasets:[{
+        label:"House Build Total Spend",
+        data:[excelData.summary.HouseBuild.debit],
+        backgroundColor:"#4caf50"
       }]
     }
   });
 }
 
-function drawLine(obj, label) {
-  const labels = [];
-  const values = [];
+function drawLine(obj,label) {
+  if (!obj) return alert("No data available");
 
-  Object.keys(obj).sort().forEach(m => {
+  const labels=[], values=[];
+  Object.keys(obj).sort().forEach(m=>{
     labels.push(m);
-    values.push(obj[m].debit);
+    values.push(obj[m].debit || 0);
   });
 
   if (chart) chart.destroy();
-  chart = new Chart(trendChart, {
-    type: "line",
-    data: {
+  chart = new Chart(trendChart,{
+    type:"line",
+    data:{
       labels,
-      datasets: [{
+      datasets:[{
         label,
         data: values,
-        borderColor: "#ff9800",
-        fill: false,
-        tension: 0.3
+        borderColor:"#ff9800",
+        fill:false,
+        tension:0.3
       }]
     }
   });
@@ -331,5 +294,3 @@ function drawLine(obj, label) {
 
 </body>
 </html>
-
-
