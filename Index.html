@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Expense Manager</title>
+<title>Expense Tracker</title>
 
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="manifest" href="manifest.json">
@@ -10,58 +10,103 @@
 <style>
 body {
   margin: 0;
-  font-family: Arial;
+  font-family: "Segoe UI", Arial;
   background: linear-gradient(135deg, #1e3c72, #c31432);
+  min-height: 100vh;
   display: flex;
   justify-content: center;
   align-items: center;
-  min-height: 100vh;
 }
 
 .app {
-  background: white;
+  background: #ffffff;
   width: 95%;
   max-width: 420px;
   padding: 20px;
-  border-radius: 12px;
+  border-radius: 18px;
+  box-shadow: 0 15px 40px rgba(0,0,0,0.25);
 }
 
-select, input, button {
+h3 {
+  text-align: center;
+  margin-top: 0;
+}
+
+label {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+select, input {
   width: 100%;
-  padding: 10px;
-  margin-top: 10px;
+  padding: 12px;
+  margin-top: 6px;
+  border-radius: 10px;
+  border: 1px solid #ddd;
+  font-size: 15px;
 }
 
 button {
+  width: 100%;
+  padding: 13px;
+  margin-top: 12px;
+  border-radius: 14px;
   border: none;
-  border-radius: 6px;
+  font-size: 16px;
   cursor: pointer;
 }
 
-.add-btn { background: #1e88e5; color: white; }
-.spend-btn { background: #e53935; color: white; }
-
-.summary {
-  background: #f3f3f3;
-  padding: 10px;
-  border-radius: 8px;
-  margin-top: 10px;
+.add-btn {
+  background: linear-gradient(135deg, #2196f3, #1e88e5);
+  color: white;
 }
 
+.spend-btn {
+  background: linear-gradient(135deg, #ff5252, #e53935);
+  color: white;
+}
+
+.export-btn {
+  background: #444;
+  color: white;
+}
+
+.summary {
+  margin-top: 16px;
+  padding: 16px;
+  border-radius: 16px;
+  background: #f7f9fc;
+  display: flex;
+  justify-content: space-between;
+  font-weight: bold;
+}
+
+.summary span {
+  color: #1e3c72;
+}
+
+/* MODALS */
 .modal {
   display: none;
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.6);
+  background: rgba(0,0,0,0.5);
   justify-content: center;
   align-items: center;
+  z-index: 1000;
 }
 
 .modal-box {
   background: white;
-  padding: 20px;
-  border-radius: 10px;
+  padding: 22px;
+  border-radius: 18px;
   width: 90%;
+  max-width: 360px;
+  text-align: center;
+}
+
+.modal-box h3 {
+  margin-top: 0;
 }
 </style>
 </head>
@@ -69,7 +114,7 @@ button {
 <body>
 
 <div class="app">
-  <h3>💰 Expense Manager</h3>
+  <h3>💰 Expense Tracker</h3>
 
   <label>Month</label>
   <input type="month" id="monthPicker">
@@ -84,34 +129,45 @@ button {
   <label>Category</label>
   <select id="category"></select>
 
+  <label>Monthly Budget</label>
+  <input type="number" id="budget" placeholder="Eg: 20000">
+
   <label>Spend Amount</label>
-  <input type="number" id="debit">
+  <input type="number" id="debit" placeholder="Enter spent amount">
 
   <button class="spend-btn" onclick="saveDebit()">💸 Spend</button>
-  <button class="add-btn" onclick="openModal()">➕ Add Amount</button>
+  <button class="add-btn" onclick="openAddModal()">➕ Add Amount</button>
 
   <div class="summary">
-    <p><b>Balance:</b> ₹<span id="balance">0</span></p>
+    <div>Balance</div>
+    <div>₹ <span id="balance">0</span></div>
   </div>
 
-  <h4>📊 Monthly Summary</h4>
-  <ul id="history"></ul>
-
-  <button onclick="exportExcel()">📤 Export Excel</button>
+  <button class="export-btn" onclick="exportExcel()">📤 Export Excel</button>
 </div>
 
-<!-- ADD MODAL -->
-<div class="modal" id="modal">
+<!-- ADD AMOUNT MODAL -->
+<div class="modal" id="addModal">
   <div class="modal-box">
     <h3>Add Amount</h3>
-    <input type="number" id="credit">
+    <input type="number" id="credit" placeholder="Enter amount">
     <button class="add-btn" onclick="saveCredit()">Save</button>
-    <button onclick="closeModal()">Cancel</button>
+    <button onclick="closeAddModal()">Cancel</button>
+  </div>
+</div>
+
+<!-- BUDGET ALERT MODAL -->
+<div class="modal" id="budgetModal">
+  <div class="modal-box">
+    <h3 id="budgetTitle"></h3>
+    <p id="budgetMsg"></p>
+    <button onclick="closeBudgetModal()">OK</button>
   </div>
 </div>
 
 <script>
 const API_URL = "https://script.google.com/macros/s/AKfycbxOw_EZjiegbhpqtU-Zc-hvXERsA5M_3OpCAV5qS3-yAGXps33tPNhrqJ-B3QLlfbLfNg/exec";
+const SHEET_ID = "14DntGpbPle9sA2jonUKSA14JzUixUG4Kx5etfNNSIok";
 
 let currentMonth = new Date().toISOString().slice(0,7);
 let balances = {};
@@ -119,7 +175,7 @@ let balances = {};
 document.getElementById("monthPicker").value = currentMonth;
 
 const categoryMap = {
-  Personal: ["Food","Rent","Friends","Home","Others"],
+  Personal: ["Food","Rent","Friends","Home","Mobile Recharge","EB Bill","Others"],
   Office: ["Card","Game"],
   "House Build": ["Sand","EB","Bricks","Cement","Electrician","Iron Builder"]
 };
@@ -131,29 +187,44 @@ function updateSubTypes() {
   categoryMap[type].forEach(v => cat.add(new Option(v, v)));
 }
 
-function openModal() {
-  document.getElementById("modal").style.display = "flex";
+updateSubTypes();
+
+function openAddModal() {
+  document.getElementById("addModal").style.display = "flex";
 }
-function closeModal() {
-  document.getElementById("modal").style.display = "none";
+function closeAddModal() {
+  document.getElementById("addModal").style.display = "none";
 }
 
 function saveCredit() {
-  const val = Number(document.getElementById("credit").value || 0);
-  applyTransaction(val, 0);
-  closeModal();
+  const credit = Number(document.getElementById("credit").value || 0);
+  applyTransaction(credit, 0);
+  closeAddModal();
 }
 
 function saveDebit() {
-  const val = Number(document.getElementById("debit").value || 0);
-  applyTransaction(0, val);
+  const debit = Number(document.getElementById("debit").value || 0);
+  applyTransaction(0, debit);
+  checkBudgetAlert();
 }
 
 function applyTransaction(credit, debit) {
   const key = `${currentMonth}_${document.getElementById("mainType").value}`;
   balances[key] = (balances[key] || 0) + credit - debit;
 
-  sendData(credit, debit);
+  fetch(API_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      month: currentMonth,
+      mainType: document.getElementById("mainType").value,
+      category: document.getElementById("category").value,
+      credit,
+      debit,
+      balance: balances[key]
+    })
+  });
+
   refreshView();
 }
 
@@ -162,47 +233,39 @@ function refreshView() {
   document.getElementById("balance").innerText = balances[key] || 0;
 }
 
-function sendData(credit, debit) {
-  fetch(API_URL, {
-    method: "POST",
-    body: JSON.stringify({
-      month: currentMonth,
-      mainType: document.getElementById("mainType").value,
-      category: document.getElementById("category").value,
-      credit,
-      debit,
-      balance: balances[`${currentMonth}_${document.getElementById("mainType").value}`]
-    })
-  });
+document.getElementById("monthPicker").addEventListener("change", e => {
+  currentMonth = e.target.value;
+  refreshView();
+});
+
+function checkBudgetAlert() {
+  const budget = Number(document.getElementById("budget").value);
+  if (!budget) return;
+
+  const key = `${currentMonth}_${document.getElementById("mainType").value}`;
+  const spent = Math.max(0, budget - (balances[key] || 0));
+  const percent = (spent / budget) * 100;
+
+  if (percent >= 90) {
+    showBudgetModal("🚨 Budget Critical", `You used ${Math.round(percent)}% of your budget`);
+  } else if (percent >= 70) {
+    showBudgetModal("⚠️ Budget Warning", `You used ${Math.round(percent)}% of your budget`);
+  }
 }
 
-function loadHistory() {
-  fetch(API_URL)
-    .then(res => res.json())
-    .then(data => {
-      const list = document.getElementById("history");
-      list.innerHTML = "";
+function showBudgetModal(title, msg) {
+  document.getElementById("budgetTitle").innerText = title;
+  document.getElementById("budgetMsg").innerText = msg;
+  document.getElementById("budgetModal").style.display = "flex";
+}
 
-      data.forEach(row => {
-        const li = document.createElement("li");
-        li.innerText = `${row[0]} → ₹${row[1]}`;
-        list.appendChild(li);
-      });
-    });
+function closeBudgetModal() {
+  document.getElementById("budgetModal").style.display = "none";
 }
 
 function exportExcel() {
-  const SHEET_ID = "14DntGpbPle9sA2jonUKSA14JzUixUG4Kx5etfNNSIok";
   window.open(`https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=xlsx`);
 }
-
-// Auto load
-loadHistory();
-
-document.getElementById("monthPicker").addEventListener("change", () => {
-  currentMonth = document.getElementById("monthPicker").value;
-  refreshView();
-});
 
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('sw.js');
@@ -211,4 +274,3 @@ if ('serviceWorker' in navigator) {
 
 </body>
 </html>
-
