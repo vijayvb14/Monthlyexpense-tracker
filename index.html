@@ -219,7 +219,7 @@ function processTxn(cr, dr) {
     })
   });
 }
-
+const categories = categoryMap;
 function downloadExcel() {
   window.open(`https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=xlsx`);
 }
@@ -294,4 +294,5 @@ function drawLine(obj,label) {
 
 </body>
 </html>
+
 
