@@ -146,7 +146,7 @@ const categoryMap = {
     "Loan CR","Loan DR","PF","Salary","Miscellaneous"
   ]
 };
-
+const categories = categoryMap;
 /* ================= STATE ================= */
 let balance = 0;
 let chart;
@@ -219,7 +219,7 @@ function processTxn(cr, dr) {
     })
   });
 }
-const categories = categoryMap;
+
 function downloadExcel() {
   window.open(`https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=xlsx`);
 }
@@ -294,5 +294,6 @@ function drawLine(obj,label) {
 
 </body>
 </html>
+
 
 
