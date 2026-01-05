@@ -28,25 +28,20 @@ body {
 
 h3 {
   text-align: center;
-  margin-bottom: 10px;
 }
 
 label {
   display: block;
   margin-top: 14px;
-  margin-bottom: 4px;
   font-weight: 600;
   font-size: 13px;
-  color: #444;
 }
 
 select, input {
   width: 100%;
-  padding: 14px 12px;
+  padding: 14px;
   border-radius: 12px;
   border: 1px solid #ddd;
-  font-size: 15px;
-  box-sizing: border-box;
 }
 
 button {
@@ -59,21 +54,15 @@ button {
   cursor: pointer;
 }
 
-.add-btn {
-  background: linear-gradient(135deg, #2196f3, #1e88e5);
-  color: white;
-}
-
-.spend-btn {
-  background: linear-gradient(135deg, #ff5252, #e53935);
-  color: white;
-}
+.add-btn { background: #2196f3; color: white; }
+.spend-btn { background: #e53935; color: white; }
+.export-btn { background: #333; color: white; }
 
 .summary {
   margin-top: 18px;
   padding: 16px;
   border-radius: 16px;
-  background: #f7f9fc;
+  background: #f5f7fb;
   display: flex;
   justify-content: space-between;
   font-weight: bold;
@@ -90,7 +79,7 @@ button {
   <input type="month" id="monthPicker">
 
   <label>Type</label>
-  <select id="mainType" onchange="updateSubTypes(); refreshView();">
+  <select id="mainType">
     <option>Personal</option>
     <option>Office</option>
     <option>House Build</option>
@@ -103,7 +92,7 @@ button {
   <input type="number" id="budget" placeholder="Eg: 20000">
 
   <label>Spend Amount</label>
-  <input type="number" id="debit" placeholder="Enter spent amount">
+  <input type="number" id="debit">
 
   <button class="spend-btn" onclick="saveDebit()">💸 Spend</button>
   <button class="add-btn" onclick="saveCredit()">➕ Add Amount</button>
@@ -112,15 +101,14 @@ button {
     <div>Balance</div>
     <div>₹ <span id="balance">0</span></div>
   </div>
+
+  <button class="export-btn" onclick="exportAll()">📤 Export All</button>
+  <button class="export-btn" onclick="exportMonth()">📆 Export This Month</button>
 </div>
 
 <script>
-const API_URL = "PASTE_NEW_WEB_APP_URL_HERE";
-
-let currentMonth = new Date().toISOString().slice(0,7);
-let balances = {};
-
-monthPicker.value = currentMonth;
+const API_URL = "PASTE_YOUR_NEW_WEB_APP_URL";
+const SHEET_ID = "14DntGpbPle9sA2jonUKSA14JzUixUG4Kx5etfNNSIok";
 
 const categoryMap = {
   Personal: ["Food","Rent","Friends","Home","Others"],
@@ -128,66 +116,85 @@ const categoryMap = {
   "House Build": ["Sand","EB","Bricks","Cement","Electrician","Iron Builder"]
 };
 
-function updateSubTypes() {
+const monthPicker = document.getElementById("monthPicker");
+const mainType = document.getElementById("mainType");
+const category = document.getElementById("category");
+const balanceEl = document.getElementById("balance");
+
+let currentMonth = new Date().toISOString().slice(0,7);
+monthPicker.value = currentMonth;
+
+function updateCategories() {
   category.innerHTML = "";
   categoryMap[mainType.value].forEach(v =>
     category.add(new Option(v, v))
   );
 }
-updateSubTypes();
 
-function saveCredit() {
-  applyTransaction(1000, 0); // demo add amount
+function getKey() {
+  return `balance_${currentMonth}_${mainType.value}`;
 }
 
-function saveDebit() {
-  const debit = Number(document.getElementById("debit").value || 0);
-  applyTransaction(0, debit);
-  checkBudgetAlert();
+function loadBalance() {
+  balanceEl.innerText = localStorage.getItem(getKey()) || 0;
+}
+
+function saveBalance(val) {
+  localStorage.setItem(getKey(), val);
+  balanceEl.innerText = val;
 }
 
 function applyTransaction(credit, debit) {
-  const key = `${currentMonth}_${mainType.value}`;
-  balances[key] = (balances[key] || 0) + credit - debit;
+  let bal = Number(localStorage.getItem(getKey()) || 0);
+  bal += credit - debit;
+  saveBalance(bal);
 
   fetch(API_URL, {
     method: "POST",
-    headers: {
-      "Content-Type": "text/plain;charset=utf-8"
-    },
+    headers: { "Content-Type": "text/plain;charset=utf-8" },
     body: JSON.stringify({
       month: currentMonth,
       mainType: mainType.value,
       category: category.value,
       credit,
       debit,
-      balance: balances[key]
+      balance: bal
     })
   });
-
-  refreshView();
 }
 
-function refreshView() {
-  balance.innerText = balances[`${currentMonth}_${mainType.value}`] || 0;
+function saveCredit() {
+  const amt = prompt("Enter amount to add");
+  if (!amt) return;
+  applyTransaction(Number(amt), 0);
 }
 
-monthPicker.onchange = e => {
-  currentMonth = e.target.value;
-  refreshView();
+function saveDebit() {
+  const amt = Number(document.getElementById("debit").value || 0);
+  applyTransaction(0, amt);
+}
+
+function exportAll() {
+  window.open(`https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=xlsx`);
+}
+
+function exportMonth() {
+  alert("After export, use Excel filter on Month column = " + currentMonth);
+  exportAll();
+}
+
+monthPicker.onchange = () => {
+  currentMonth = monthPicker.value;
+  loadBalance();
 };
 
-function checkBudgetAlert() {
-  const budget = Number(document.getElementById("budget").value);
-  if (!budget) return;
+mainType.onchange = () => {
+  updateCategories();
+  loadBalance();
+};
 
-  const bal = balances[`${currentMonth}_${mainType.value}`] || 0;
-  const spent = Math.max(0, budget - bal);
-  const percent = (spent / budget) * 100;
-
-  if (percent >= 90) alert("🚨 Budget exceeded 90%");
-  else if (percent >= 70) alert("⚠️ Budget used 70%");
-}
+updateCategories();
+loadBalance();
 </script>
 
 </body>
