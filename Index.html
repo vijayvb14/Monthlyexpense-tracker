@@ -22,34 +22,38 @@ body {
   background: #ffffff;
   width: 95%;
   max-width: 420px;
-  padding: 20px;
+  padding: 22px;
   border-radius: 18px;
   box-shadow: 0 15px 40px rgba(0,0,0,0.25);
 }
 
 h3 {
   text-align: center;
-  margin-top: 0;
+  margin: 0 0 10px 0;
 }
 
 label {
+  display: block;
+  margin-top: 14px;
+  margin-bottom: 4px;
   font-weight: 600;
-  font-size: 14px;
+  font-size: 13px;
+  color: #444;
 }
 
 select, input {
   width: 100%;
-  padding: 12px;
-  margin-top: 6px;
-  border-radius: 10px;
+  padding: 14px 12px;
+  border-radius: 12px;
   border: 1px solid #ddd;
   font-size: 15px;
+  box-sizing: border-box;
 }
 
 button {
   width: 100%;
-  padding: 13px;
-  margin-top: 12px;
+  padding: 14px;
+  margin-top: 14px;
   border-radius: 14px;
   border: none;
   font-size: 16px;
@@ -72,7 +76,7 @@ button {
 }
 
 .summary {
-  margin-top: 16px;
+  margin-top: 18px;
   padding: 16px;
   border-radius: 16px;
   background: #f7f9fc;
@@ -90,7 +94,7 @@ button {
   display: none;
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.5);
+  background: rgba(0,0,0,0.55);
   justify-content: center;
   align-items: center;
   z-index: 1000;
@@ -103,10 +107,6 @@ button {
   width: 90%;
   max-width: 360px;
   text-align: center;
-}
-
-.modal-box h3 {
-  margin-top: 0;
 }
 </style>
 </head>
@@ -129,7 +129,7 @@ button {
   <label>Category</label>
   <select id="category"></select>
 
-  <label>Monthly Budget</label>
+  <label>Monthly Budget (for alerts only)</label>
   <input type="number" id="budget" placeholder="Eg: 20000">
 
   <label>Spend Amount</label>
@@ -175,9 +175,9 @@ let balances = {};
 document.getElementById("monthPicker").value = currentMonth;
 
 const categoryMap = {
-  Personal: ["Food","Rent","Friends","Home","Mobile Recharge","EB Bill","Others"],
+  Personal: ["Food","Rent","Friends","Home","Recharge","EB Bill","Others"],
   Office: ["Card","Game"],
-  "House Build": ["Sand","EB","Bricks","Cement","Electrician","Iron Builder"]
+  HouseBuild: ["Sand","EB Bill","Bricks","Cement","Electrician","Iron Builder"]
 };
 
 function updateSubTypes() {
@@ -186,7 +186,6 @@ function updateSubTypes() {
   cat.innerHTML = "";
   categoryMap[type].forEach(v => cat.add(new Option(v, v)));
 }
-
 updateSubTypes();
 
 function openAddModal() {
@@ -215,6 +214,7 @@ function applyTransaction(credit, debit) {
   fetch(API_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
+    mode: "no-cors",
     body: JSON.stringify({
       month: currentMonth,
       mainType: document.getElementById("mainType").value,
@@ -258,7 +258,6 @@ function showBudgetModal(title, msg) {
   document.getElementById("budgetMsg").innerText = msg;
   document.getElementById("budgetModal").style.display = "flex";
 }
-
 function closeBudgetModal() {
   document.getElementById("budgetModal").style.display = "none";
 }
@@ -267,8 +266,8 @@ function exportExcel() {
   window.open(`https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=xlsx`);
 }
 
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('sw.js');
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("sw.js");
 }
 </script>
 
