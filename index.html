@@ -3,69 +3,68 @@
 <head>
 <meta charset="UTF-8">
 <title>Expense Tracker</title>
-
 <meta name="viewport" content="width=device-width, initial-scale=1">
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <style>
 body {
   margin: 0;
-  font-family: "Segoe UI", Arial;
-  background: linear-gradient(135deg, #1e3c72, #c31432);
+  font-family: Arial;
+  background: linear-gradient(135deg,#1e3c72,#c31432);
   min-height: 100vh;
-  display: flex;
-  justify-content: center;
-  align-items: center;
 }
 
 .app {
-  background: #fff;
-  width: 95%;
+  background: white;
   max-width: 420px;
-  padding: 22px;
-  border-radius: 18px;
-  box-shadow: 0 15px 40px rgba(0,0,0,0.25);
-}
-
-h3 {
-  text-align: center;
+  margin: auto;
+  padding: 15px;
+  border-radius: 16px;
 }
 
 label {
-  display: block;
-  margin-top: 14px;
-  font-weight: 600;
   font-size: 13px;
+  font-weight: bold;
+  margin-top: 10px;
+  display: block;
 }
 
-select, input {
+input, select, button {
   width: 100%;
-  padding: 14px;
-  border-radius: 12px;
-  border: 1px solid #ddd;
+  padding: 10px;
+  margin-top: 6px;
 }
 
 button {
-  width: 100%;
-  padding: 14px;
-  margin-top: 14px;
-  border-radius: 14px;
+  background: #333;
+  color: white;
   border: none;
-  font-size: 16px;
-  cursor: pointer;
+  border-radius: 10px;
 }
 
-.add-btn { background: #2196f3; color: white; }
-.spend-btn { background: #e53935; color: white; }
-.export-btn { background: #333; color: white; }
+.section {
+  background: #f4f6fa;
+  padding: 10px;
+  border-radius: 10px;
+  margin-top: 10px;
+}
 
-.summary {
-  margin-top: 18px;
-  padding: 16px;
-  border-radius: 16px;
-  background: #f5f7fb;
+#bottomNav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: #111;
   display: flex;
-  justify-content: space-between;
-  font-weight: bold;
+  justify-content: space-around;
+  padding: 8px 0;
+}
+
+#bottomNav button {
+  background: none;
+  color: white;
+  font-size: 18px;
 }
 </style>
 </head>
@@ -73,13 +72,16 @@ button {
 <body>
 
 <div class="app">
+
+<!-- ================= TRACKER ================= -->
+<div id="tracker">
   <h3>💰 Expense Tracker</h3>
 
   <label>Month</label>
-  <input type="month" id="monthPicker">
+  <input type="month" id="month">
 
   <label>Type</label>
-  <select id="mainType">
+  <select id="type" onchange="loadCategories(); loadBalance();">
     <option>Personal</option>
     <option>Office</option>
     <option>House Build</option>
@@ -88,28 +90,50 @@ button {
   <label>Category</label>
   <select id="category"></select>
 
-  <label>Monthly Budget (alerts only)</label>
-  <input type="number" id="budget" placeholder="Eg: 20000">
+  <label>Monthly Budget</label>
+  <input type="number" id="budget">
 
-  <label>Spend Amount</label>
-  <input type="number" id="debit">
+  <label>Amount</label>
+  <input type="number" id="amount">
 
-  <button class="spend-btn" onclick="saveDebit()">💸 Spend</button>
-  <button class="add-btn" onclick="saveCredit()">➕ Add Amount</button>
+  <button onclick="addAmount()">➕ Add Amount</button>
+  <button onclick="spendAmount()">💸 Spend</button>
 
-  <div class="summary">
-    <div>Balance</div>
-    <div>₹ <span id="balance">0</span></div>
+  <div class="section">
+    <b>Balance:</b> ₹ <span id="balance">0</span>
   </div>
 
-  <button class="export-btn" onclick="exportAll()">📤 Export All</button>
-  <button class="export-btn" onclick="exportMonth()">📆 Export This Month</button>
+  <button onclick="downloadExcel()">📤 Download Excel</button>
+</div>
+
+<!-- ================= CHARTS ================= -->
+<div id="charts" style="display:none;">
+  <h3>📈 Trends</h3>
+
+  <label>Trend Type</label>
+  <select onchange="switchTrend(this.value)">
+    <option value="personal">Personal</option>
+    <option value="office">Office</option>
+    <option value="house">House Build</option>
+  </select>
+
+  <canvas id="trendChart" height="220"></canvas>
+</div>
+
+</div>
+
+<!-- MOBILE NAV -->
+<div id="bottomNav">
+  <button onclick="showSection('tracker')">🏠</button>
+  <button onclick="showSection('charts')">📊</button>
 </div>
 
 <script>
-const API_URL = "https://script.google.com/macros/s/AKfycbzzIOnzB5h9cadnzu3ZnkdjUm-A8APvE2QT81lbYvZzZl96lpzNLi2goRmCMLXUQtLxYA/exec";
+/* ================= CONFIG ================= */
+const API_URL = "PASTE_YOUR_WEB_APP_URL";
 const SHEET_ID = "14DntGpbPle9sA2jonUKSA14JzUixUG4Kx5etfNNSIok";
 
+/* ================= CATEGORY MAP ================= */
 const categoryMap = {
   Personal: ["Food","Rent","Friends","Home","Others"],
 
@@ -148,90 +172,163 @@ const categoryMap = {
 };
 
 
-const monthPicker = document.getElementById("monthPicker");
-const mainType = document.getElementById("mainType");
-const category = document.getElementById("category");
-const balanceEl = document.getElementById("balance");
+/* ================= STATE ================= */
+let balance = 0;
+let chart;
+let excelData;
 
-let currentMonth = new Date().toISOString().slice(0,7);
-monthPicker.value = currentMonth;
+/* ================= INIT ================= */
+month.value = new Date().toISOString().slice(0,7);
+loadCategories();
+loadBalance();
 
-function updateCategories() {
+/* ================= UI NAV ================= */
+function showSection(id) {
+  tracker.style.display = "none";
+  charts.style.display = "none";
+  document.getElementById(id).style.display = "block";
+
+  if (id === "charts") loadExcelData();
+}
+
+/* ================= TRACKER LOGIC ================= */
+function loadCategories() {
   category.innerHTML = "";
-  categoryMap[mainType.value].forEach(v =>
-    category.add(new Option(v, v))
+  categories[type.value].forEach(c =>
+    category.add(new Option(c, c))
   );
 }
 
-function getKey() {
-  return `balance_${currentMonth}_${mainType.value}`;
+function storageKey() {
+  return type.value === "House Build"
+    ? "HB_BALANCE"
+    : `${month.value}_${type.value}`;
 }
 
 function loadBalance() {
-  balanceEl.innerText = localStorage.getItem(getKey()) || 0;
+  balance = Number(localStorage.getItem(storageKey()) || 0);
+  document.getElementById("balance").innerText = balance;
 }
 
-function saveBalance(val) {
-  localStorage.setItem(getKey(), val);
-  balanceEl.innerText = val;
+function updateBalance(v) {
+  balance = v;
+  localStorage.setItem(storageKey(), v);
+  document.getElementById("balance").innerText = v;
 }
 
-function applyTransaction(credit, debit) {
-  let bal = Number(localStorage.getItem(getKey()) || 0);
-  bal += credit - debit;
-  saveBalance(bal);
+function addAmount() {
+  const amt = Number(amount.value);
+  processTxn(amt, 0);
+}
+
+function spendAmount() {
+  const amt = Number(amount.value);
+  processTxn(0, amt);
+
+  if (budget.value && balance < budget.value * 0.3) {
+    alert("⚠️ Budget almost used");
+  }
+}
+
+function processTxn(cr, dr) {
+  const newBal = balance + cr - dr;
+  updateBalance(newBal);
 
   fetch(API_URL, {
     method: "POST",
     headers: { "Content-Type": "text/plain;charset=utf-8" },
     body: JSON.stringify({
-      month: currentMonth,
-      mainType: mainType.value,
+      month: month.value,
+      type: type.value,
       category: category.value,
-      credit,
-      debit,
-      balance: bal
+      credit: cr,
+      debit: dr,
+      balance: newBal
     })
   });
 }
 
-function saveCredit() {
-  const amt = prompt("Enter amount to add");
-  if (!amt) return;
-  applyTransaction(Number(amt), 0);
-}
-
-function saveDebit() {
-  const amt = Number(document.getElementById("debit").value || 0);
-  applyTransaction(0, amt);
-}
-
-function exportAll() {
+function downloadExcel() {
   window.open(`https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=xlsx`);
 }
 
-function exportMonth() {
-  alert("After export, use Excel filter on Month column = " + currentMonth);
-  exportAll();
+/* ================= EXCEL DATA ================= */
+function loadExcelData() {
+  if (excelData) return;
+  fetch(API_URL)
+    .then(r => r.json())
+    .then(d => {
+      excelData = d;
+      drawPersonalTrend();
+    });
 }
 
-monthPicker.onchange = () => {
-  currentMonth = monthPicker.value;
-  loadBalance();
-};
+/* ================= TREND SWITCH ================= */
+function switchTrend(v) {
+  if (v === "personal") drawPersonalTrend();
+  if (v === "office") drawOfficeTrend();
+  if (v === "house") drawHouseTrend();
+}
 
-mainType.onchange = () => {
-  updateCategories();
-  loadBalance();
-};
+/* ================= CHARTS ================= */
+function drawPersonalTrend() {
+  drawLine(
+    excelData.summary.Personal,
+    "Personal Monthly Spend"
+  );
+}
 
-updateCategories();
-loadBalance();
+function drawOfficeTrend() {
+  drawLine(
+    excelData.summary.Office,
+    "Office Monthly Spend"
+  );
+}
+
+function drawHouseTrend() {
+  const labels = ["House Build"];
+  const values = [excelData.summary.HouseBuild.debit];
+
+  if (chart) chart.destroy();
+  chart = new Chart(trendChart, {
+    type: "bar",
+    data: {
+      labels,
+      datasets: [{
+        label: "House Build Total Spend",
+        data: values,
+        backgroundColor: "#4caf50"
+      }]
+    }
+  });
+}
+
+function drawLine(obj, label) {
+  const labels = [];
+  const values = [];
+
+  Object.keys(obj).sort().forEach(m => {
+    labels.push(m);
+    values.push(obj[m].debit);
+  });
+
+  if (chart) chart.destroy();
+  chart = new Chart(trendChart, {
+    type: "line",
+    data: {
+      labels,
+      datasets: [{
+        label,
+        data: values,
+        borderColor: "#ff9800",
+        fill: false,
+        tension: 0.3
+      }]
+    }
+  });
+}
 </script>
 
 </body>
 </html>
-
-
-
 
