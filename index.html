@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
 <meta charset="UTF-8">
 <title>Expense Tracker</title>
@@ -12,9 +12,7 @@ body {
   margin: 0;
   font-family: Arial;
   background: linear-gradient(135deg,#1e3c72,#c31432);
-  min-height: 100vh;
 }
-
 .app {
   background: white;
   max-width: 420px;
@@ -22,49 +20,31 @@ body {
   padding: 15px;
   border-radius: 16px;
 }
-
 label {
   font-size: 13px;
   font-weight: bold;
   margin-top: 10px;
   display: block;
 }
-
 input, select, button {
   width: 100%;
   padding: 10px;
   margin-top: 6px;
 }
-
 button {
   background: #333;
   color: white;
   border: none;
   border-radius: 10px;
 }
-
 .section {
   background: #f4f6fa;
   padding: 10px;
   border-radius: 10px;
   margin-top: 10px;
 }
-
-#bottomNav {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  background: #111;
-  display: flex;
-  justify-content: space-around;
-  padding: 8px 0;
-}
-
-#bottomNav button {
-  background: none;
-  color: white;
-  font-size: 18px;
+canvas {
+  margin-top: 15px;
 }
 </style>
 </head>
@@ -72,65 +52,50 @@ button {
 <body>
 
 <div class="app">
+<h3>💰 Expense Tracker</h3>
 
-<!-- ================= TRACKER ================= -->
-<div id="tracker">
-  <h3>💰 Expense Tracker</h3>
+<label>Month</label>
+<input type="month" id="month">
 
-  <label>Month</label>
-  <input type="month" id="month">
+<label>Type</label>
+<select id="type" onchange="onContextChange()">
+  <option>Personal</option>
+  <option>Office</option>
+  <option>House Build</option>
+</select>
 
-  <label>Type</label>
-  <select id="type" onchange="loadCategories(); loadBalance();">
-    <option>Personal</option>
-    <option>Office</option>
-    <option>House Build</option>
-  </select>
+<label>Category</label>
+<select id="category"></select>
 
-  <label>Category</label>
-  <select id="category"></select>
+<label>Amount</label>
+<input type="number" id="amount">
 
-  <label>Monthly Budget</label>
-  <input type="number" id="budget">
+<button onclick="addAmount()">➕ Add Amount</button>
+<button onclick="spendAmount()">💸 Spend</button>
 
-  <label>Amount</label>
-  <input type="number" id="amount">
-
-  <button onclick="addAmount()">➕ Add Amount</button>
-  <button onclick="spendAmount()">💸 Spend</button>
-
-  <div class="section">
-    <b>Balance:</b> ₹ <span id="balance">0</span>
-  </div>
-
-  <button onclick="downloadExcel()">📤 Download Excel</button>
+<div class="section">
+  <b>Balance:</b> ₹ <span id="balance">0</span>
 </div>
 
-<!-- ================= CHARTS ================= -->
-<div id="charts" style="display:none;">
-  <h3>📈 Trends</h3>
+<button onclick="exportMonth()">📤 Export This Month</button>
+<button onclick="exportAll()">📦 Export Full Sheet</button>
 
-  <label>Trend Type</label>
-  <select onchange="switchTrend(this.value)">
-    <option value="personal">Personal</option>
-    <option value="office">Office</option>
-    <option value="house">House Build</option>
-  </select>
+<hr>
 
-  <canvas id="trendChart" height="220"></canvas>
-</div>
+<h4>📊 Trend Chart</h4>
 
-</div>
+<select onchange="drawChart(this.value)">
+  <option value="Personal">Personal</option>
+  <option value="Office">Office</option>
+  <option value="House Build">House Build</option>
+</select>
 
-<!-- MOBILE NAV -->
-<div id="bottomNav">
-  <button onclick="showSection('tracker')">🏠</button>
-  <button onclick="showSection('charts')">📊</button>
+<canvas id="trendChart" height="220"></canvas>
 </div>
 
 <script>
 /* ================= CONFIG ================= */
-const API_URL = "https://script.google.com/macros/s/AKfycbzHUrb0hVQ-QAjdejuUk6NWWegpcKpI39WsaJjMRO3BHyuy-gk0MJqTqxg1XgSQRzTDxA/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbwHgx29byEFHRnESd_OgzME-Mabxqn4fNjtojdaz_5pP5FgdTu--ABv9GHCWpmKJ2MD-w/exec";
 const SHEET_ID = "14DntGpbPle9sA2jonUKSA14JzUixUG4Kx5etfNNSIok";
 
 /* ================= CATEGORY MAP ================= */
@@ -147,65 +112,32 @@ const categoryMap = {
   ]
 };
 const categories = categoryMap;
-/* ================= STATE ================= */
-let balance = 0;
 let chart;
-let excelData;
+let summaryData;
 
-/* ================= INIT ================= */
+/* INIT */
 month.value = new Date().toISOString().slice(0,7);
 loadCategories();
-loadBalance();
+refreshBalance();
+loadSummary();
 
-/* ================= NAV ================= */
-function showSection(id) {
-  tracker.style.display = "none";
-  charts.style.display = "none";
-  document.getElementById(id).style.display = "block";
-
-  if (id === "charts") loadExcelData();
-}
-
-/* ================= TRACKER ================= */
+/* CATEGORY */
 function loadCategories() {
   category.innerHTML = "";
   categoryMap[type.value].forEach(c =>
-    category.add(new Option(c, c))
+    category.add(new Option(c,c))
   );
 }
 
-function storageKey() {
-  return type.value === "House Build"
-    ? "HB_BALANCE"
-    : `${month.value}_${type.value}`;
-}
-
-function loadBalance() {
-  balance = Number(localStorage.getItem(storageKey()) || 0);
-  document.getElementById("balance").innerText = balance;
-}
-
-function updateBalance(v) {
-  balance = v;
-  localStorage.setItem(storageKey(), v);
-  document.getElementById("balance").innerText = v;
-}
-
+/* SAVE */
 function addAmount() {
-  processTxn(Number(amount.value), 0);
+  saveTxn(Number(amount.value), 0);
 }
-
 function spendAmount() {
-  processTxn(0, Number(amount.value));
-  if (budget.value && balance < budget.value * 0.3) {
-    alert("⚠️ Budget almost used");
-  }
+  saveTxn(0, Number(amount.value));
 }
 
-function processTxn(cr, dr) {
-  const newBal = balance + cr - dr;
-  updateBalance(newBal);
-
+function saveTxn(cr, dr) {
   fetch(API_URL,{
     method:"POST",
     headers:{ "Content-Type":"text/plain;charset=utf-8" },
@@ -214,74 +146,80 @@ function processTxn(cr, dr) {
       type: type.value,
       category: category.value,
       credit: cr,
-      debit: dr,
-      balance: newBal
+      debit: dr
     })
+  }).then(() => {
+    setTimeout(() => {
+      refreshBalance();
+      loadSummary();
+    }, 600);
   });
 }
 
-function downloadExcel() {
-  window.open(`https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=xlsx`);
-}
-
-/* ================= EXCEL DATA ================= */
-function loadExcelData() {
-  if (excelData) return;
+/* BALANCE */
+function refreshBalance() {
   fetch(API_URL)
     .then(r => r.json())
     .then(d => {
-      excelData = d;
-      drawPersonalTrend();
+      summaryData = d.summary;
+      let bal = 0;
+
+      if (type.value === "House Build") {
+        bal = summaryData.HouseBuild.balance || 0;
+      } else {
+        bal = summaryData[type.value]?.[month.value]?.balance || 0;
+      }
+
+      document.getElementById("balance").innerText = bal;
     });
 }
 
-/* ================= TREND SWITCH ================= */
-function switchTrend(v) {
-  if (v === "personal") drawPersonalTrend();
-  if (v === "office") drawOfficeTrend();
-  if (v === "house") drawHouseTrend();
+/* SUMMARY */
+function loadSummary() {
+  fetch(API_URL)
+    .then(r => r.json())
+    .then(d => {
+      summaryData = d.summary;
+      drawChart(type.value);
+    });
 }
 
-/* ================= CHARTS ================= */
-function drawPersonalTrend() {
-  drawLine(excelData.summary.Personal, "Personal Monthly Spend");
-}
-
-function drawOfficeTrend() {
-  drawLine(excelData.summary.Office, "Office Monthly Spend");
-}
-
-function drawHouseTrend() {
-  if (chart) chart.destroy();
-  chart = new Chart(trendChart,{
-    type:"bar",
-    data:{
-      labels:["House Build"],
-      datasets:[{
-        label:"House Build Total Spend",
-        data:[excelData.summary.HouseBuild.debit],
-        backgroundColor:"#4caf50"
-      }]
-    }
-  });
-}
-
-function drawLine(obj,label) {
-  if (!obj) return alert("No data available");
-
-  const labels=[], values=[];
-  Object.keys(obj).sort().forEach(m=>{
-    labels.push(m);
-    values.push(obj[m].debit || 0);
-  });
+/* CHART */
+function drawChart(t) {
+  if (!summaryData) return;
 
   if (chart) chart.destroy();
+
+  if (t === "House Build") {
+    chart = new Chart(trendChart,{
+      type:"bar",
+      data:{
+        labels:["House Build"],
+        datasets:[{
+          label:"Total Balance",
+          data:[summaryData.HouseBuild.balance],
+          backgroundColor:"#4caf50"
+        }]
+      }
+    });
+    return;
+  }
+
+  const months = [];
+  const values = [];
+
+  const obj = summaryData[t] || {};
+  Object.keys(obj).sort().forEach(m => {
+    months.push(m);
+    values.push(obj[m].debit);
+  });
+
   chart = new Chart(trendChart,{
     type:"line",
     data:{
-      labels,
+      labels: months,
       datasets:[{
-        label,
+        label: t + " Monthly Spend",
         data: values,
         borderColor:"#ff9800",
         fill:false,
@@ -290,10 +228,24 @@ function drawLine(obj,label) {
     }
   });
 }
+
+/* EXPORT */
+function exportAll() {
+  window.open(
+    `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=xlsx`
+  );
+}
+
+function exportMonth() {
+  alert("Use Excel filter: Month = " + month.value);
+  exportAll();
+}
+
+function onContextChange() {
+  loadCategories();
+  refreshBalance();
+}
 </script>
 
 </body>
 </html>
-
-
-
